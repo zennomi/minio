@@ -1,0 +1,9 @@
+
+data/*
+
+# Environment variables
+.env
+
+# Docker volumes
+*.log
+

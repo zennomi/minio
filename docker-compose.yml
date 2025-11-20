@@ -1,0 +1,44 @@
+version: "3.7"
+
+services:
+  minio:
+    image: minio/minio:latest
+    container_name: minio-server
+    ports:
+      - "${MINIO_SERVER_PORT:-9000}:9000"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    volumes:
+      - ./data/minio-data:/data
+    command: server /data
+
+  setup:
+    image: minio/mc:latest
+    container_name: minio-setup
+    volumes:
+      - ./setup-console.sh:/setup-console.sh
+      - ./data/setup:/setup
+    environment:
+      MINIO_HOST: minio
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      CONSOLE_USER: console
+      CONSOLE_PASSWORD: ${CONSOLE_PASSWORD:-}
+    entrypoint: /bin/sh
+    command: -c "chmod +x /setup-console.sh && /setup-console.sh"
+    depends_on:
+      - minio
+    restart: "no"
+
+  console:
+    image: ghcr.io/georgmangold/console
+    container_name: minio-console
+    ports:
+      - "${MINIO_CONSOLE_PORT:-9090}:9090"
+    environment:
+      CONSOLE_MINIO_SERVER: http://minio:9000
+    depends_on:
+      - minio
+      - setup
