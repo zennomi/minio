@@ -188,10 +188,10 @@ Now you can access the Console Admin UI at http://localhost:9090 and login with:
 ### MinIO Server
 
 - **Container**: `minio-server`
-- **Image**: `minio/minio:latest`
+- **Image**: `ghcr.io/coollabsio/minio:RELEASE.2025-10-15T17-29-55Z` (digest-pinned in Compose)
 - **Ports**:
   - `9000`: API endpoint
-- **Data Volume**: `./minio-data` (persisted locally)
+- **Data Volume**: `./data/minio-data` (persisted locally)
 - **Environment Variables**:
   - `MINIO_ROOT_USER`: Root access key
   - `MINIO_ROOT_PASSWORD`: Root secret key
@@ -199,7 +199,7 @@ Now you can access the Console Admin UI at http://localhost:9090 and login with:
 ### Setup Service
 
 - **Container**: `minio-setup`
-- **Image**: `minio/mc:latest`
+- **Image**: Reuses the same digest-pinned `ghcr.io/coollabsio/minio` image, which includes `mc` and Bash
 - **Purpose**: Automatically creates console user and admin policy
 - **Restart Policy**: `no` (runs once and exits)
 - **Environment Variables**:
@@ -255,7 +255,7 @@ environment:
 
 ## Data Persistence
 
-All MinIO data is stored in the `./minio-data` directory, which is mounted as a volume. This ensures your data persists even if containers are removed.
+All MinIO data is stored in the `./data/minio-data` directory, which is bind-mounted at `/data`. This ensures your data persists even if containers are removed. Back up this directory while MinIO is stopped before changing server versions.
 
 ## Stopping Services
 
@@ -263,13 +263,27 @@ All MinIO data is stored in the `./minio-data` directory, which is mounted as a 
 docker-compose down
 ```
 
-To remove volumes (⚠️ **deletes all data**):
-
-```bash
-docker-compose down -v
-```
+`docker compose down -v` removes Docker-managed volumes, not the bind-mounted `./data/minio-data` directory. Do not delete that directory unless you intend to erase your stored data.
 
 ## Troubleshooting
+
+### MinIO images cannot be pulled
+
+The former `minio/minio` and `minio/mc` Docker Hub images are no longer publicly pullable. The Quay alternatives also returned `401 Unauthorized` when checked. Logging in or removing the obsolete Compose `version` field does not fix missing public images.
+
+This stack uses [Coollabs community-built MinIO images](https://github.com/coollabsio/minio), not an official MinIO image. The selected image supports `linux/amd64` and `linux/arm64`, and bundles MinIO `RELEASE.2025-10-15T17-29-55Z`, mc `RELEASE.2025-08-13T08-35-41Z`, and Bash. Both services share a release tag and multi-architecture digest so a moving `latest` tag cannot silently change the binaries.
+
+After backing up `./data/minio-data` while the server is stopped:
+
+```bash
+docker compose pull
+docker compose up -d
+docker compose ps -a
+```
+
+Keep the existing data mount and `.env` credentials. The console image is unchanged.
+
+**Security:** This trusts a third-party image publisher. Pinning prevents tag drift; it does not certify image safety or provide security updates. [Upstream MinIO](https://github.com/minio/minio) is archived and no longer maintained, so treat this as a recovery option rather than a long-term supported production deployment.
 
 ### Console can't connect to MinIO
 
